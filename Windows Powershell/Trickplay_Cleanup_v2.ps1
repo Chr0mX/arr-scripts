@@ -77,10 +77,10 @@ $ConfigFilePath = Join-Path -Path $ScriptDir -ChildPath "trickplay_config.json"
 # Error handling: pause on any unhandled errors
 trap {
     Write-Output ""
-    Write-Output "========================================" -ForegroundColor Red
-    Write-Output "ERROR OCCURRED" -ForegroundColor Red
-    Write-Output "========================================" -ForegroundColor Red
-    Write-Output $_.Exception.Message -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host "ERROR OCCURRED" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
     Write-Output ""
     Write-Output "Script execution failed. Press Enter to exit..."
     Read-Host
@@ -137,7 +137,7 @@ function New-DefaultConfiguration {
 
     $default = @{
         version          = "1.0"
-        lastUpdated      = (Get-Date -AsUTC).ToString("o")
+        lastUpdated      = ([datetime]::UtcNow).ToString("o")
         lastSelectedMode = "Movie"
         libraries        = @{
             Movie  = @{
@@ -193,7 +193,7 @@ function Save-Configuration {
             Copy-Item -LiteralPath $ConfigPath -Destination $backupPath -Force
         }
 
-        $Config.lastUpdated = (Get-Date -AsUTC).ToString("o")
+        $Config.lastUpdated = ([datetime]::UtcNow).ToString("o")
         $jsonConfig = $Config | ConvertTo-Json -Depth 10
         Set-Content -LiteralPath $ConfigPath -Value $jsonConfig -Encoding UTF8 -Force
 
@@ -243,7 +243,7 @@ function Update-RunStatistics {
         trickplayRemoved = $Script:Stats.TrickplayRemoved
         trickplayFailed  = $Script:Stats.TrickplayFailed
     }
-    $config.libraries[$LibraryType].lastRunDate = (Get-Date -AsUTC).ToString("o")
+    $config.libraries[$LibraryType].lastRunDate = ([datetime]::UtcNow).ToString("o")
     Save-Configuration -Config $config
 }
 
@@ -333,7 +333,7 @@ function Select-FolderPath {
     )
 
     Write-Output ""
-    Write-Output "Folder Selection:" -ForegroundColor Yellow
+    Write-Host "Folder Selection:" -ForegroundColor Yellow
 
     # Show saved path option
     if ($SavedPath -and (Test-Path -LiteralPath $SavedPath -PathType Container)) {
@@ -360,12 +360,12 @@ function Select-FolderPath {
         $userPath = $userPath.Trim('"', "'", '\', '/')
 
         if ([string]::IsNullOrWhiteSpace($userPath)) {
-            Write-Output "  [!] Path cannot be empty. Try again." -ForegroundColor Red
+            Write-Host "  [!] Path cannot be empty. Try again." -ForegroundColor Red
             continue
         }
 
         if (-not (Test-RootPath -RootPath $userPath)) {
-            Write-Output "  [!] Try again with a valid path." -ForegroundColor Yellow
+            Write-Host "  [!] Try again with a valid path." -ForegroundColor Yellow
             continue
         }
 
@@ -619,16 +619,16 @@ function Invoke-InteractiveMode {
     #>
     try {
         Write-Output ""
-        Write-Output "========================================" -ForegroundColor Cyan
-        Write-Output "  $ScriptName v$ScriptVersion" -ForegroundColor Cyan
-        Write-Output "========================================" -ForegroundColor Cyan
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host "  $ScriptName v$ScriptVersion" -ForegroundColor Cyan
+        Write-Host "========================================" -ForegroundColor Cyan
         Write-Output ""
 
         # Load saved config
         $config = Get-Configuration
 
         # Step 1: Select library type
-        Write-Output "Select media library type:" -ForegroundColor Yellow
+        Write-Host "Select media library type:" -ForegroundColor Yellow
         Write-Output "  1) Movies (flat directory structure)"
         Write-Output "  2) TV Shows (show/season hierarchy)"
         Write-Output ""
@@ -640,7 +640,7 @@ function Invoke-InteractiveMode {
         } elseif ($modeChoice -eq "2") {
             $selectedLibraryType = "TVShow"
         } else {
-            Write-Output "Invalid choice. Exiting." -ForegroundColor Red
+            Write-Host "Invalid choice. Exiting." -ForegroundColor Red
             exit 1
         }
 
@@ -659,7 +659,7 @@ function Invoke-InteractiveMode {
 
         # Step 4: Confirm
         Write-Output ""
-        Write-Output "Summary:" -ForegroundColor Cyan
+        Write-Host "Summary:" -ForegroundColor Cyan
         Write-Output "  Library Type: $selectedLibraryType"
         Write-Output "  Root Path: $selectedPath"
         Write-Output "  Log File: $(if ($selectedLogFile) { $selectedLogFile } else { 'None' })"
@@ -667,7 +667,7 @@ function Invoke-InteractiveMode {
 
         $confirm = Read-Host "Proceed with cleanup? (y/n)"
         if ($confirm -ne 'y') {
-            Write-Output "Cancelled by user." -ForegroundColor Yellow
+            Write-Host "Cancelled by user." -ForegroundColor Yellow
             exit 0
         }
 
@@ -682,9 +682,9 @@ function Invoke-InteractiveMode {
         Write-Log "Cleanup completed."
     } catch {
         Write-Output ""
-        Write-Output "========================================" -ForegroundColor Red
-        Write-Output "ERROR: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Output "========================================" -ForegroundColor Red
+        Write-Host "========================================" -ForegroundColor Red
+        Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "========================================" -ForegroundColor Red
         Write-Output ""
         Write-Output "Press Enter to exit..."
         Read-Host
@@ -738,9 +738,9 @@ try {
     }
 } catch {
     Write-Output ""
-    Write-Output "========================================" -ForegroundColor Red
-    Write-Output "ERROR: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Output "========================================" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
     Write-Output ""
     Write-Output "Press Enter to exit..."
     Read-Host
