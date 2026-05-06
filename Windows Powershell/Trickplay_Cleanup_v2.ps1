@@ -221,10 +221,39 @@ function Save-Configuration {
     }
 }
 
+function Read-ConfigValue {
+    # Safely reads a value from either a hashtable or PSCustomObject
+    param($Object, [string]$Key, $Default = $null)
+    if ($null -eq $Object) { return $Default }
+    if ($Object -is [System.Collections.IDictionary]) {
+        if ($Object.ContainsKey($Key)) { return $Object[$Key] } else { return $Default }
+    }
+    $val = $Object.PSObject.Properties[$Key]
+    if ($null -eq $val) { return $Default }
+    return $val.Value
+}
+
+function Build-LibraryEntry {
+    # Builds a fresh hashtable for one library entry, merging existing values
+    param($Existing, [string]$NewPath = $null, [string]$NewLogFile = $null, $NewStats = $null)
+    $stats = Read-ConfigValue $Existing 'lastRunStats'
+    return @{
+        rootPath    = if ($NewPath)    { $NewPath }    else { Read-ConfigValue $Existing 'rootPath' }
+        logFile     = if ($NewLogFile) { $NewLogFile } else { Read-ConfigValue $Existing 'logFile' }
+        lastRunDate = if ($NewStats)   { ([datetime]::UtcNow).ToString("o") } else { Read-ConfigValue $Existing 'lastRunDate' }
+        lastRunStats = @{
+            scannedFolders   = if ($NewStats) { $NewStats.ScannedFolders }   else { Read-ConfigValue $stats 'scannedFolders'   0 }
+            emptyFolders     = if ($NewStats) { $NewStats.EmptyFolders }     else { Read-ConfigValue $stats 'emptyFolders'     0 }
+            trickplayRemoved = if ($NewStats) { $NewStats.TrickplayRemoved } else { Read-ConfigValue $stats 'trickplayRemoved' 0 }
+            trickplayFailed  = if ($NewStats) { $NewStats.TrickplayFailed }  else { Read-ConfigValue $stats 'trickplayFailed'  0 }
+        }
+    }
+}
+
 function Save-ConfigurationPreference {
     <#
     .SYNOPSIS
-        Updates and saves user preferences to config.
+        Saves updated folder path and log file for a library type.
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -236,34 +265,62 @@ function Save-ConfigurationPreference {
         [string]$LogFile = $null
     )
 
-    $config = Get-Configuration
-    $config.libraries[$LibraryType].rootPath = $Path
-    if ($LogFile) {
-        $config.libraries[$LibraryType].logFile = $LogFile
+    $existing   = Get-Configuration
+    $otherType  = if ($LibraryType -eq 'Movie') { 'TVShow' } else { 'Movie' }
+    $existingLib  = Read-ConfigValue (Read-ConfigValue $existing 'libraries') $LibraryType
+    $otherLib     = Read-ConfigValue (Read-ConfigValue $existing 'libraries') $otherType
+    $prefs        = Read-ConfigValue $existing 'preferences'
+
+    $newConfig = @{
+        version          = Read-ConfigValue $existing 'version' '1.0'
+        lastUpdated      = ([datetime]::UtcNow).ToString("o")
+        lastSelectedMode = $LibraryType
+        libraries        = @{
+            $LibraryType = Build-LibraryEntry $existingLib -NewPath $Path -NewLogFile $LogFile
+            $otherType   = Build-LibraryEntry $otherLib
+        }
+        preferences      = @{
+            confirmBeforeDelete = Read-ConfigValue $prefs 'confirmBeforeDelete' $true
+            autoBackupConfig    = Read-ConfigValue $prefs 'autoBackupConfig'    $true
+            verbose             = Read-ConfigValue $prefs 'verbose'             $true
+        }
     }
-    $config.lastSelectedMode = $LibraryType
-    Save-Configuration -Config $config
+
+    Save-Configuration -Config $newConfig
 }
 
 function Update-RunStatistics {
     <#
     .SYNOPSIS
-        Updates config with run statistics.
+        Saves run statistics for a library type into the config.
     #>
     param(
         [Parameter(Mandatory = $true)]
         [string]$LibraryType
     )
 
-    $config = Get-Configuration
-    $config.libraries[$LibraryType].lastRunStats = @{
-        scannedFolders   = $Script:Stats.ScannedFolders
-        emptyFolders     = $Script:Stats.EmptyFolders
-        trickplayRemoved = $Script:Stats.TrickplayRemoved
-        trickplayFailed  = $Script:Stats.TrickplayFailed
+    $existing  = Get-Configuration
+    $otherType = if ($LibraryType -eq 'Movie') { 'TVShow' } else { 'Movie' }
+    $existingLib = Read-ConfigValue (Read-ConfigValue $existing 'libraries') $LibraryType
+    $otherLib    = Read-ConfigValue (Read-ConfigValue $existing 'libraries') $otherType
+    $prefs       = Read-ConfigValue $existing 'preferences'
+
+    $newConfig = @{
+        version          = Read-ConfigValue $existing 'version' '1.0'
+        lastUpdated      = ([datetime]::UtcNow).ToString("o")
+        lastSelectedMode = Read-ConfigValue $existing 'lastSelectedMode' $LibraryType
+        libraries        = @{
+            $LibraryType = Build-LibraryEntry $existingLib -NewStats $Script:Stats
+            $otherType   = Build-LibraryEntry $otherLib
+        }
+        preferences      = @{
+            confirmBeforeDelete = Read-ConfigValue $prefs 'confirmBeforeDelete' $true
+            autoBackupConfig    = Read-ConfigValue $prefs 'autoBackupConfig'    $true
+            verbose             = Read-ConfigValue $prefs 'verbose'             $true
+        }
     }
-    $config.libraries[$LibraryType].lastRunDate = ([datetime]::UtcNow).ToString("o")
-    Save-Configuration -Config $config
+
+    Save-Configuration -Config $newConfig
 }
 
 # ============================================================================
