@@ -758,12 +758,14 @@ function Invoke-InteractiveMode {
         Write-Output ""
 
         # Step 2: Select folder path (or use saved)
-        $savedPath = Read-ConfigValue (Read-ConfigValue $config 'libraries' @{}).[$selectedLibraryType] 'rootPath'
+        $libraries   = Read-ConfigValue $config 'libraries' @{}
+        $savedLib    = Read-ConfigValue $libraries $selectedLibraryType @{}
+        $savedPath   = Read-ConfigValue $savedLib 'rootPath'
         $selectedPath = Select-FolderPath -LibraryType $selectedLibraryType -SavedPath $savedPath
 
         # Step 3: Optional log file (or use saved)
         Write-Output ""
-        $savedLogFile = Read-ConfigValue (Read-ConfigValue $config 'libraries' @{}).[$selectedLibraryType] 'logFile'
+        $savedLogFile = Read-ConfigValue $savedLib 'logFile'
         if ($savedLogFile) {
             Write-Host "Log file:" -ForegroundColor Yellow
             Write-Output "  Saved: $savedLogFile"
