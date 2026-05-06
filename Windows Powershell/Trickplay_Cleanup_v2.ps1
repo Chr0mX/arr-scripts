@@ -670,16 +670,16 @@ function Invoke-InteractiveMode {
 # MAIN ENTRY POINT
 # ============================================================================
 
-# Determine execution mode
-$isInteractiveMode = $PSBoundParameters.Count -eq 0
+# Determine execution mode: check if Root was explicitly provided (not just defaulted)
+$isInteractiveMode = -not $PSBoundParameters.ContainsKey('Root')
 
 if ($isInteractiveMode) {
-    # Interactive mode
+    # Interactive mode (no -Root parameter provided)
     Invoke-InteractiveMode
 } else {
-    # CLI mode
-    if (-not $Root) {
-        Write-Error "-Root parameter is required when running in CLI mode"
+    # CLI mode (Root parameter provided)
+    if ([string]::IsNullOrWhiteSpace($Root)) {
+        Write-Error "-Root parameter cannot be empty when running in CLI mode"
         exit 1
     }
 
