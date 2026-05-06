@@ -45,8 +45,7 @@
     Preview what would be deleted without making changes.
 
 .VERSION
-    2.2 - Allow pressing Enter to use saved config values, auto-detect when config has all settings
-    2.1 - Fix PS 5.1 compatibility: Write-Host colors, [datetime]::UtcNow, if/else instead of ternary
+    2.3 - Interactive settings menu, auto-remove all, simplified UI, GitHub link
 #>
 
 param(
@@ -68,12 +67,14 @@ param(
 )
 
 # Script metadata
-$ScriptVersion = "2.2"
+$ScriptVersion = "2.3"
 $ScriptName = "Trickplay_Cleanup"
+$GitHubUrl = "https://github.com/Chr0mX/arr-scripts/tree/main/Windows%20Powershell"
 
-# Configuration file in same directory as script
+# Configuration and log files in same directory as script
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ConfigFilePath = Join-Path -Path $ScriptDir -ChildPath "trickplay_config.json"
+$DefaultLogFile = Join-Path -Path $ScriptDir -ChildPath "Trickplay_cleanup_log.txt"
 
 # Error handling: pause on any unhandled errors
 trap {
@@ -700,6 +701,72 @@ function Invoke-Cleanup {
 }
 
 # ============================================================================
+# SETTINGS MENU
+# ============================================================================
+
+function Invoke-SettingsMenu {
+    <#
+    .SYNOPSIS
+        Displays and allows user to modify preferences.
+    #>
+    try {
+        $config = Get-Configuration
+        $prefs = Read-ConfigValue $config 'preferences' @{}
+
+        while ($true) {
+            Write-Output ""
+            Write-Host "Settings:" -ForegroundColor Cyan
+            Write-Output ""
+            Write-Output "  Verbose: $(Read-ConfigValue $prefs 'verbose' $true)"
+            Write-Output "  1) Toggle Verbose"
+            Write-Output ""
+            Write-Output "  Confirm Before Delete: $(Read-ConfigValue $prefs 'confirmBeforeDelete' $true)"
+            Write-Output "  2) Toggle Confirm Before Delete"
+            Write-Output ""
+            Write-Output "  Auto Backup Config: $(Read-ConfigValue $prefs 'autoBackupConfig' $true)"
+            Write-Output "  3) Toggle Auto Backup Config"
+            Write-Output ""
+            Write-Output "  0) Go Back"
+            Write-Output ""
+            Write-Host "  $GitHubUrl" -ForegroundColor DarkGray
+            Write-Output ""
+
+            $choice = Read-Host "Enter choice (0-3)"
+
+            if ($choice -eq "0") {
+                Write-Output "Returning to main menu..."
+                return
+            } elseif ($choice -eq "1") {
+                $prefs.verbose = -not (Read-ConfigValue $prefs 'verbose' $true)
+                $config.preferences = $prefs
+                Save-Configuration -Config $config
+                Write-Host "Verbose set to: $($prefs.verbose)" -ForegroundColor Green
+            } elseif ($choice -eq "2") {
+                $prefs.confirmBeforeDelete = -not (Read-ConfigValue $prefs 'confirmBeforeDelete' $true)
+                $config.preferences = $prefs
+                Save-Configuration -Config $config
+                Write-Host "Confirm Before Delete set to: $($prefs.confirmBeforeDelete)" -ForegroundColor Green
+            } elseif ($choice -eq "3") {
+                $prefs.autoBackupConfig = -not (Read-ConfigValue $prefs 'autoBackupConfig' $true)
+                $config.preferences = $prefs
+                Save-Configuration -Config $config
+                Write-Host "Auto Backup Config set to: $($prefs.autoBackupConfig)" -ForegroundColor Green
+            } else {
+                Write-Host "Invalid choice. Try again." -ForegroundColor Red
+            }
+        }
+    } catch {
+        Write-Output ""
+        Write-Host "========================================" -ForegroundColor Red
+        Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "========================================" -ForegroundColor Red
+        Write-Output ""
+        Write-Output "Press Enter to return to menu..."
+        Read-Host
+    }
+}
+
+# ============================================================================
 # INTERACTIVE MODE
 # ============================================================================
 
@@ -724,9 +791,11 @@ function Invoke-InteractiveMode {
         if ($savedMode -and ($savedMode -eq 'Movie' -or $savedMode -eq 'TVShow')) {
             Write-Host "Library type:" -ForegroundColor Yellow
             Write-Output "  Saved: $savedMode"
-            Write-Output "  1) Movies (flat directory structure)"
-            Write-Output "  2) TV Shows (show/season hierarchy)"
-            Write-Output "  (Press Enter to use saved)"
+            Write-Output "  1) Movies"
+            Write-Output "  2) TV Shows"
+            Write-Output "  3) Settings"
+            Write-Output ""
+            Write-Output "  0) Go Back"
             Write-Output ""
 
             $modeChoice = Read-Host "Enter choice or press Enter"
@@ -738,25 +807,42 @@ function Invoke-InteractiveMode {
                 $selectedLibraryType = "Movie"
             } elseif ($modeChoice -eq "2") {
                 $selectedLibraryType = "TVShow"
+            } elseif ($modeChoice -eq "3") {
+                Invoke-SettingsMenu
+                return
+            } elseif ($modeChoice -eq "0") {
+                Write-Output "Returning to main menu..."
+                return
             } else {
-                Write-Host "Invalid choice. Exiting." -ForegroundColor Red
-                exit 1
+                Write-Host "Invalid choice. Try again." -ForegroundColor Red
+                Invoke-InteractiveMode
+                return
             }
         } else {
             Write-Host "Select media library type:" -ForegroundColor Yellow
-            Write-Output "  1) Movies (flat directory structure)"
-            Write-Output "  2) TV Shows (show/season hierarchy)"
+            Write-Output "  1) Movies"
+            Write-Output "  2) TV Shows"
+            Write-Output "  3) Settings"
+            Write-Output ""
+            Write-Output "  0) Go Back"
             Write-Output ""
 
-            $modeChoice = Read-Host "Enter choice (1 or 2)"
+            $modeChoice = Read-Host "Enter choice (1, 2, 3, or 0)"
 
             if ($modeChoice -eq "1") {
                 $selectedLibraryType = "Movie"
             } elseif ($modeChoice -eq "2") {
                 $selectedLibraryType = "TVShow"
+            } elseif ($modeChoice -eq "3") {
+                Invoke-SettingsMenu
+                return
+            } elseif ($modeChoice -eq "0") {
+                Write-Output "Exiting..."
+                exit 0
             } else {
-                Write-Host "Invalid choice. Exiting." -ForegroundColor Red
-                exit 1
+                Write-Host "Invalid choice. Try again." -ForegroundColor Red
+                Invoke-InteractiveMode
+                return
             }
         }
 
@@ -775,7 +861,7 @@ function Invoke-InteractiveMode {
             $selectedPath = Select-FolderPath -LibraryType $selectedLibraryType -SavedPath $savedPath
         }
 
-        # Step 3: Optional log file (auto-use saved if available, allow override)
+        # Step 3: Optional log file (auto-use saved, default to script directory)
         Write-Output ""
         $savedLogFile = Read-ConfigValue $savedLib 'logFile'
         if ($savedLogFile) {
@@ -783,13 +869,9 @@ function Invoke-InteractiveMode {
             $selectedLogFile = $savedLogFile
             Write-Output "Using saved log file: $selectedLogFile"
         } else {
-            # No saved log file, ask if user wants one
-            $logFileInput = Read-Host "Enter log file path (press Enter to skip)"
-            if ([string]::IsNullOrWhiteSpace($logFileInput)) {
-                $selectedLogFile = $null
-            } else {
-                $selectedLogFile = $logFileInput
-            }
+            # No saved log file, default to script directory log file
+            $selectedLogFile = $DefaultLogFile
+            Write-Output "Using default log file: $selectedLogFile"
         }
 
         # Step 4: Confirm
