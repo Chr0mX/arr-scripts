@@ -74,6 +74,19 @@ $ScriptName = "Trickplay_Cleanup"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ConfigFilePath = Join-Path -Path $ScriptDir -ChildPath "trickplay_config.json"
 
+# Error handling: pause on any unhandled errors
+trap {
+    Write-Output ""
+    Write-Output "========================================" -ForegroundColor Red
+    Write-Output "ERROR OCCURRED" -ForegroundColor Red
+    Write-Output "========================================" -ForegroundColor Red
+    Write-Output $_.Exception.Message -ForegroundColor Red
+    Write-Output ""
+    Write-Output "Script execution failed. Press Enter to exit..."
+    Read-Host
+    exit 1
+}
+
 # Default media extensions
 $DefaultMediaExtensions = @(
     ".mkv", ".mp4", ".m4v", ".mov", ".avi", ".wmv",
@@ -602,110 +615,132 @@ function Invoke-InteractiveMode {
     .SYNOPSIS
         Launches interactive menu for user to select library and options.
     #>
-    Write-Output ""
-    Write-Output "========================================" -ForegroundColor Cyan
-    Write-Output "  $ScriptName v$ScriptVersion" -ForegroundColor Cyan
-    Write-Output "========================================" -ForegroundColor Cyan
-    Write-Output ""
+    try {
+        Write-Output ""
+        Write-Output "========================================" -ForegroundColor Cyan
+        Write-Output "  $ScriptName v$ScriptVersion" -ForegroundColor Cyan
+        Write-Output "========================================" -ForegroundColor Cyan
+        Write-Output ""
 
-    # Load saved config
-    $config = Get-Configuration
+        # Load saved config
+        $config = Get-Configuration
 
-    # Step 1: Select library type
-    Write-Output "Select media library type:" -ForegroundColor Yellow
-    Write-Output "  1) Movies (flat directory structure)"
-    Write-Output "  2) TV Shows (show/season hierarchy)"
-    Write-Output ""
+        # Step 1: Select library type
+        Write-Output "Select media library type:" -ForegroundColor Yellow
+        Write-Output "  1) Movies (flat directory structure)"
+        Write-Output "  2) TV Shows (show/season hierarchy)"
+        Write-Output ""
 
-    $modeChoice = Read-Host "Enter choice (1 or 2)"
+        $modeChoice = Read-Host "Enter choice (1 or 2)"
 
-    if ($modeChoice -eq "1") {
-        $selectedLibraryType = "Movie"
-    } elseif ($modeChoice -eq "2") {
-        $selectedLibraryType = "TVShow"
-    } else {
-        Write-Output "Invalid choice. Exiting." -ForegroundColor Red
+        if ($modeChoice -eq "1") {
+            $selectedLibraryType = "Movie"
+        } elseif ($modeChoice -eq "2") {
+            $selectedLibraryType = "TVShow"
+        } else {
+            Write-Output "Invalid choice. Exiting." -ForegroundColor Red
+            exit 1
+        }
+
+        # Step 2: Select folder path
+        $savedPath = $config.libraries[$selectedLibraryType].rootPath
+        $selectedPath = Select-FolderPath -LibraryType $selectedLibraryType -SavedPath $savedPath
+
+        # Step 3: Optional log file
+        Write-Output ""
+        $logFileInput = Read-Host "Enter log file path (press Enter to skip)"
+        if ([string]::IsNullOrWhiteSpace($logFileInput)) {
+            $selectedLogFile = $null
+        } else {
+            $selectedLogFile = $logFileInput
+        }
+
+        # Step 4: Confirm
+        Write-Output ""
+        Write-Output "Summary:" -ForegroundColor Cyan
+        Write-Output "  Library Type: $selectedLibraryType"
+        Write-Output "  Root Path: $selectedPath"
+        Write-Output "  Log File: $(if ($selectedLogFile) { $selectedLogFile } else { 'None' })"
+        Write-Output ""
+
+        $confirm = Read-Host "Proceed with cleanup? (y/n)"
+        if ($confirm -ne 'y') {
+            Write-Output "Cancelled by user." -ForegroundColor Yellow
+            exit 0
+        }
+
+        # Save preferences
+        Save-ConfigurationPreference -LibraryType $selectedLibraryType -Path $selectedPath -LogFile $selectedLogFile
+
+        # Execute cleanup
+        $script:LogFile = $selectedLogFile
+        Ensure-LogDirectory
+        Write-Log "Trickplay_Cleanup v$ScriptVersion started in interactive mode"
+        Invoke-Cleanup -Root $selectedPath -Type $selectedLibraryType
+        Write-Log "Cleanup completed."
+    } catch {
+        Write-Output ""
+        Write-Output "========================================" -ForegroundColor Red
+        Write-Output "ERROR: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Output "========================================" -ForegroundColor Red
+        Write-Output ""
+        Write-Output "Press Enter to exit..."
+        Read-Host
         exit 1
     }
-
-    # Step 2: Select folder path
-    $savedPath = $config.libraries[$selectedLibraryType].rootPath
-    $selectedPath = Select-FolderPath -LibraryType $selectedLibraryType -SavedPath $savedPath
-
-    # Step 3: Optional log file
-    Write-Output ""
-    $logFileInput = Read-Host "Enter log file path (press Enter to skip)"
-    if ([string]::IsNullOrWhiteSpace($logFileInput)) {
-        $selectedLogFile = $null
-    } else {
-        $selectedLogFile = $logFileInput
-    }
-
-    # Step 4: Confirm
-    Write-Output ""
-    Write-Output "Summary:" -ForegroundColor Cyan
-    Write-Output "  Library Type: $selectedLibraryType"
-    Write-Output "  Root Path: $selectedPath"
-    Write-Output "  Log File: $(if ($selectedLogFile) { $selectedLogFile } else { 'None' })"
-    Write-Output ""
-
-    $confirm = Read-Host "Proceed with cleanup? (y/n)"
-    if ($confirm -ne 'y') {
-        Write-Output "Cancelled by user." -ForegroundColor Yellow
-        exit 0
-    }
-
-    # Save preferences
-    Save-ConfigurationPreference -LibraryType $selectedLibraryType -Path $selectedPath -LogFile $selectedLogFile
-
-    # Execute cleanup
-    $script:LogFile = $selectedLogFile
-    Ensure-LogDirectory
-    Write-Log "Trickplay_Cleanup v$ScriptVersion started in interactive mode"
-    Invoke-Cleanup -Root $selectedPath -Type $selectedLibraryType
-    Write-Log "Cleanup completed."
 }
 
 # ============================================================================
 # MAIN ENTRY POINT
 # ============================================================================
 
-# Determine execution mode: check if Root was explicitly provided (not just defaulted)
-$isInteractiveMode = -not $PSBoundParameters.ContainsKey('Root')
+try {
+    # Determine execution mode: check if Root was explicitly provided (not just defaulted)
+    $isInteractiveMode = -not $PSBoundParameters.ContainsKey('Root')
 
-if ($isInteractiveMode) {
-    # Interactive mode (no -Root parameter provided)
-    Invoke-InteractiveMode
-} else {
-    # CLI mode (Root parameter provided)
-    if ([string]::IsNullOrWhiteSpace($Root)) {
-        Write-Error "-Root parameter cannot be empty when running in CLI mode"
-        exit 1
+    if ($isInteractiveMode) {
+        # Interactive mode (no -Root parameter provided)
+        Invoke-InteractiveMode
+    } else {
+        # CLI mode (Root parameter provided)
+        if ([string]::IsNullOrWhiteSpace($Root)) {
+            Write-Error "-Root parameter cannot be empty when running in CLI mode" -ErrorAction Stop
+            exit 1
+        }
+
+        if (-not $LibraryType) {
+            $config = Get-Configuration
+            $LibraryType = $config.lastSelectedMode
+        }
+
+        # Validate root path
+        if (-not (Test-RootPath -RootPath $Root)) {
+            exit 1
+        }
+
+        # Prepare logging
+        $script:LogFile = $LogFile
+        Ensure-LogDirectory
+
+        Write-Log "Trickplay_Cleanup v$ScriptVersion started in CLI mode"
+        Write-Log "Library Type: $LibraryType"
+        Write-Log "Root Path: $Root"
+        if ($LogFile) { Write-Log "Log File: $LogFile" }
+        if ($WhatIf) { Write-Log "Mode: WhatIf (no changes)" }
+        Write-Log ""
+
+        # Execute cleanup
+        Invoke-Cleanup -Root $Root -Type $LibraryType
+
+        Write-Log "Cleanup completed."
     }
-
-    if (-not $LibraryType) {
-        $config = Get-Configuration
-        $LibraryType = $config.lastSelectedMode
-    }
-
-    # Validate root path
-    if (-not (Test-RootPath -RootPath $Root)) {
-        exit 1
-    }
-
-    # Prepare logging
-    $script:LogFile = $LogFile
-    Ensure-LogDirectory
-
-    Write-Log "Trickplay_Cleanup v$ScriptVersion started in CLI mode"
-    Write-Log "Library Type: $LibraryType"
-    Write-Log "Root Path: $Root"
-    if ($LogFile) { Write-Log "Log File: $LogFile" }
-    if ($WhatIf) { Write-Log "Mode: WhatIf (no changes)" }
-    Write-Log ""
-
-    # Execute cleanup
-    Invoke-Cleanup -Root $Root -Type $LibraryType
-
-    Write-Log "Cleanup completed."
+} catch {
+    Write-Output ""
+    Write-Output "========================================" -ForegroundColor Red
+    Write-Output "ERROR: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Output "========================================" -ForegroundColor Red
+    Write-Output ""
+    Write-Output "Press Enter to exit..."
+    Read-Host
+    exit 1
 }
