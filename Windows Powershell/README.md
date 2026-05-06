@@ -185,7 +185,7 @@ Arguments: -ExecutionPolicy Bypass -File "C:\Scripts\Trickplay_Cleanup.ps1" -Roo
 
 ---
 
-### v1 — `Trickplay_Cleanup_v1.ps1`
+### v1 — `Trickplay_Cleanup.ps1`
 
 **Breaking changes:**
 - Replaces `Movies_trickplay_removal.ps1` and `TVshows_trickplay_removal.ps1` with a single unified script
