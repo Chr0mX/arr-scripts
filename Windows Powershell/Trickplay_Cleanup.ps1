@@ -45,6 +45,7 @@
     Preview what would be deleted without making changes.
 
 .VERSION
+    2.2 - Allow pressing Enter to use saved config values, auto-detect when config has all settings
     2.1 - Fix PS 5.1 compatibility: Write-Host colors, [datetime]::UtcNow, if/else instead of ternary
 #>
 
@@ -67,7 +68,7 @@ param(
 )
 
 # Script metadata
-$ScriptVersion = "2.1"
+$ScriptVersion = "2.2"
 $ScriptName = "Trickplay_Cleanup"
 
 # Configuration file in same directory as script
@@ -701,6 +702,7 @@ function Invoke-InteractiveMode {
     <#
     .SYNOPSIS
         Launches interactive menu for user to select library and options.
+        Allows pressing Enter to use saved config values if available.
     #>
     try {
         Write-Output ""
@@ -711,35 +713,76 @@ function Invoke-InteractiveMode {
 
         # Load saved config
         $config = Get-Configuration
+        $savedMode = Read-ConfigValue $config 'lastSelectedMode' $null
 
-        # Step 1: Select library type
-        Write-Host "Select media library type:" -ForegroundColor Yellow
-        Write-Output "  1) Movies (flat directory structure)"
-        Write-Output "  2) TV Shows (show/season hierarchy)"
-        Write-Output ""
+        # Step 1: Select library type (or use saved)
+        if ($savedMode -and ($savedMode -eq 'Movie' -or $savedMode -eq 'TVShow')) {
+            Write-Host "Library type:" -ForegroundColor Yellow
+            Write-Output "  Saved: $savedMode"
+            Write-Output "  1) Movies (flat directory structure)"
+            Write-Output "  2) TV Shows (show/season hierarchy)"
+            Write-Output "  (Press Enter to use saved)"
+            Write-Output ""
 
-        $modeChoice = Read-Host "Enter choice (1 or 2)"
+            $modeChoice = Read-Host "Enter choice or press Enter"
 
-        if ($modeChoice -eq "1") {
-            $selectedLibraryType = "Movie"
-        } elseif ($modeChoice -eq "2") {
-            $selectedLibraryType = "TVShow"
+            if ([string]::IsNullOrWhiteSpace($modeChoice)) {
+                $selectedLibraryType = $savedMode
+                Write-Output "Using saved: $savedMode"
+            } elseif ($modeChoice -eq "1") {
+                $selectedLibraryType = "Movie"
+            } elseif ($modeChoice -eq "2") {
+                $selectedLibraryType = "TVShow"
+            } else {
+                Write-Host "Invalid choice. Exiting." -ForegroundColor Red
+                exit 1
+            }
         } else {
-            Write-Host "Invalid choice. Exiting." -ForegroundColor Red
-            exit 1
+            Write-Host "Select media library type:" -ForegroundColor Yellow
+            Write-Output "  1) Movies (flat directory structure)"
+            Write-Output "  2) TV Shows (show/season hierarchy)"
+            Write-Output ""
+
+            $modeChoice = Read-Host "Enter choice (1 or 2)"
+
+            if ($modeChoice -eq "1") {
+                $selectedLibraryType = "Movie"
+            } elseif ($modeChoice -eq "2") {
+                $selectedLibraryType = "TVShow"
+            } else {
+                Write-Host "Invalid choice. Exiting." -ForegroundColor Red
+                exit 1
+            }
         }
 
-        # Step 2: Select folder path
-        $savedPath = $config.libraries[$selectedLibraryType].rootPath
+        Write-Output ""
+
+        # Step 2: Select folder path (or use saved)
+        $savedPath = Read-ConfigValue (Read-ConfigValue $config 'libraries' @{}).[$selectedLibraryType] 'rootPath'
         $selectedPath = Select-FolderPath -LibraryType $selectedLibraryType -SavedPath $savedPath
 
-        # Step 3: Optional log file
+        # Step 3: Optional log file (or use saved)
         Write-Output ""
-        $logFileInput = Read-Host "Enter log file path (press Enter to skip)"
-        if ([string]::IsNullOrWhiteSpace($logFileInput)) {
-            $selectedLogFile = $null
+        $savedLogFile = Read-ConfigValue (Read-ConfigValue $config 'libraries' @{}).[$selectedLibraryType] 'logFile'
+        if ($savedLogFile) {
+            Write-Host "Log file:" -ForegroundColor Yellow
+            Write-Output "  Saved: $savedLogFile"
+            Write-Output "  (Press Enter to use, or type new path to override)"
+            Write-Output ""
+            $logFileInput = Read-Host "Log file path"
+            if ([string]::IsNullOrWhiteSpace($logFileInput)) {
+                $selectedLogFile = $savedLogFile
+                Write-Output "Using saved log file"
+            } else {
+                $selectedLogFile = $logFileInput
+            }
         } else {
-            $selectedLogFile = $logFileInput
+            $logFileInput = Read-Host "Enter log file path (press Enter to skip)"
+            if ([string]::IsNullOrWhiteSpace($logFileInput)) {
+                $selectedLogFile = $null
+            } else {
+                $selectedLogFile = $logFileInput
+            }
         }
 
         # Step 4: Confirm
