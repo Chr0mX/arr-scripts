@@ -1,6 +1,6 @@
-# Trickplay Cleanup — PowerShell Scripts
+# Trickplay Cleanup — PowerShell Script
 
-Removes orphaned trickplay metadata folders from Plex media libraries when the actual media files are missing. Useful after bulk deletions or library reorganizations that leave behind dangling preview-thumbnail data.
+Removes orphaned trickplay metadata folders from media libraries when the actual media files are missing. Useful after bulk deletions or library reorganizations that leave behind dangling trickplay metadata (commonly created by Jellyfin/Plex media servers for preview thumbnails).
 
 ---
 
@@ -11,9 +11,9 @@ Removes orphaned trickplay metadata folders from Plex media libraries when the a
 | `Movies_trickplay_removal.ps1` | Legacy | Original script for movie libraries |
 | `TVshows_trickplay_removal.ps1` | Legacy | Original script for TV show libraries |
 | `Trickplay_Cleanup_v1.ps1` | Stable | Unified, parameterized script with full CLI mode |
-| `Trickplay_Cleanup_v2.ps1` | **Current** | Interactive mode, config persistence, WhatIf, improved error handling |
+| `Trickplay_Cleanup.ps1` | **Current** | Interactive mode, config persistence, WhatIf, quick-select from saved config |
 
-> **Recommended:** Use `Trickplay_Cleanup_v2.ps1` for new usage. v1 is stable but lacks interactive features and config persistence.
+> **Recommended:** Use `Trickplay_Cleanup.ps1` for all new usage. Automatically remembers your folder and reuses saved settings on subsequent runs.
 
 ---
 
@@ -24,37 +24,40 @@ Removes orphaned trickplay metadata folders from Plex media libraries when the a
 
 ---
 
-## Usage — v2.0 (Recommended)
+## Usage — Current (Recommended)
 
 ### Interactive mode (no arguments)
 ```powershell
-.\Trickplay_Cleanup_v2.ps1
+.\Trickplay_Cleanup.ps1
 ```
-Prompts user to select library type, folder path, and logging options. Saves preferences to `trickplay_config.json` for reuse.
+Prompts you to select library type, folder path, and logging options. Saves preferences to `trickplay_config.json` for reuse.
+
+**First run:** Answer all prompts, settings are saved.  
+**Subsequent runs:** Press Enter at each prompt to use saved values, or type new values to override.
 
 ### CLI mode: Movie library
 ```powershell
-.\Trickplay_Cleanup_v2.ps1 -Root "V:\Movies" -LibraryType Movie
+.\Trickplay_Cleanup.ps1 -Root "V:\Movies" -LibraryType Movie
 ```
 
 ### CLI mode: TV show library
 ```powershell
-.\Trickplay_Cleanup_v2.ps1 -Root "V:\TV Shows" -LibraryType TVShow
+.\Trickplay_Cleanup.ps1 -Root "V:\TV Shows" -LibraryType TVShow
 ```
 
 ### Preview without deleting (WhatIf mode)
 ```powershell
-.\Trickplay_Cleanup_v2.ps1 -Root "V:\Movies" -LibraryType Movie -WhatIf
+.\Trickplay_Cleanup.ps1 -Root "V:\Movies" -LibraryType Movie -WhatIf
 ```
 
 ### Skip confirmation prompts
 ```powershell
-.\Trickplay_Cleanup_v2.ps1 -Root "V:\Movies" -LibraryType Movie -Force
+.\Trickplay_Cleanup.ps1 -Root "V:\Movies" -LibraryType Movie -Force
 ```
 
 ### With file logging
 ```powershell
-.\Trickplay_Cleanup_v2.ps1 -Root "V:\Movies" -LibraryType Movie -LogFile "C:\Logs\trickplay.log"
+.\Trickplay_Cleanup.ps1 -Root "V:\Movies" -LibraryType Movie -LogFile "C:\Logs\trickplay.log"
 ```
 
 ---
@@ -83,7 +86,7 @@ Prompts user to select library type, folder path, and logging options. Saves pre
 
 ---
 
-## Parameters (v2.0)
+## Parameters (Current)
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
@@ -94,6 +97,11 @@ Prompts user to select library type, folder path, and logging options. Saves pre
 | `-Force` | Switch | No | _(off)_ | Skip confirmation prompts before deletion. |
 
 **Configuration file:** `trickplay_config.json` (created automatically in same directory as script)
+
+**Quick-select behavior:**
+- First run with no config: All prompts are mandatory
+- Subsequent runs: Shows saved values, press Enter to reuse them
+- You can always type new values to override saved settings
 
 ---
 
@@ -110,14 +118,14 @@ Prompts user to select library type, folder path, and logging options. Saves pre
 
 ## How It Works
 
-**Movie libraries** (`-LibraryType Movie`):
-Each subfolder of `$Root` is treated as one movie. If it contains no media files, any `*.trickplay` or `trickplay` subfolder inside it is deleted.
+**Movies** (`-LibraryType Movie`):
+Each subfolder of your root path is treated as one movie. If it contains no media files, any `*.trickplay` or `trickplay` subfolder inside it is deleted.
 
-**TV show libraries** (`-LibraryType TVShow`):
-The script descends two levels (`Show > Season`). If a season folder contains no media files, its trickplay subfolders are deleted.
+**TV Shows** (`-LibraryType TVShow`):
+The script descends two levels (Show > Season). If a season folder contains no media files, its trickplay subfolders are deleted.
 
 **Trickplay folder patterns matched:**
-- `*.trickplay` — dot-prefixed format used by Plex
+- `*.trickplay` — dot-prefixed format
 - `trickplay` — plain folder name (case-insensitive)
 
 **Media extensions recognized:**
@@ -125,18 +133,19 @@ The script descends two levels (`Show > Season`). If a season folder contains no
 
 ---
 
-## Task Scheduler
+## Task Scheduler / Automation
 
-### v2.0 (Recommended)
+To run on a schedule (without interactive prompts), use the CLI mode with `-Root`:
+
 ```
 Program:   powershell.exe
-Arguments: -ExecutionPolicy Bypass -File "C:\Scripts\Trickplay_Cleanup_v2.ps1" -Root "V:\Movies" -LibraryType Movie -LogFile "C:\Logs\trickplay.log"
+Arguments: -ExecutionPolicy Bypass -File "C:\Scripts\Trickplay_Cleanup.ps1" -Root "V:\Movies" -LibraryType Movie -LogFile "C:\Logs\trickplay.log"
 ```
 
-### v1 (Alternative)
+For TV shows:
 ```
 Program:   powershell.exe
-Arguments: -ExecutionPolicy Bypass -File "C:\Scripts\Trickplay_Cleanup_v1.ps1" -Root "V:\Movies" -LibraryType Movie -LogFile "C:\Logs\trickplay.log"
+Arguments: -ExecutionPolicy Bypass -File "C:\Scripts\Trickplay_Cleanup.ps1" -Root "V:\TV Shows" -LibraryType TVShow -LogFile "C:\Logs\trickplay.log"
 ```
 
 ---
@@ -151,41 +160,29 @@ Arguments: -ExecutionPolicy Bypass -File "C:\Scripts\Trickplay_Cleanup_v1.ps1" -
 
 ## Changelog
 
-### v2.0 — `Trickplay_Cleanup_v2.ps1`
+### v2.2 — `Trickplay_Cleanup.ps1` (Current)
 
-**Major features:**
-- **Interactive mode** — Launch without arguments to get an interactive menu (no CLI knowledge needed)
-- **Persistent configuration** — Folder paths and preferences saved to `trickplay_config.json` for reuse
+**New features (v2.2):**
+- **Quick-select from saved config** — Press Enter at each prompt to reuse saved values
+- **Automatic mode detection** — Shows saved library type with option to reuse
+- **Smart log file reuse** — Shows previously used log file, press Enter to keep using it
+- **Cleaner interface** — Hints show when saved values are available
+
+**Existing features:**
+- **Interactive mode** — Launch without arguments for step-by-step setup
+- **Persistent configuration** — Folder paths saved to `trickplay_config.json` for quick reuse
 - **WhatIf mode** — Preview deletions with `-WhatIf` before making changes
 - **Confirmation prompts** — Ask before each deletion; skip with `-Force`
 - **Progress indicators** — Visual progress bars for large library scans
 - **Statistics tracking** — Detailed summary showing scanned folders, empty folders, removed items, failures
-- **Config mapping** — Separate TV Shows and Movies folders in configuration
+- **Independent library configs** — Separate saved paths for Movies and TV Shows
 
-**Code quality improvements (from CODE_REVIEW.md):**
-- Write-Log error handling with graceful failure reporting
-- Log directory auto-creation with error feedback
-- Enhanced root path validation with permission checking
-- Attribute clearing safety fix (no longer affects unintended files)
-- Better error messages with context hints
-- Progress indication for long-running scans
-- Execution time tracking
-- Statistics collection and reporting
-- Separate functions for Movie vs TVShow cleanup
-- Full comment-based help for all functions
-- Function documentation with `.SYNOPSIS`, parameters, outputs
-
-**New configuration system:**
-- Auto-creates `trickplay_config.json` on first run
-- Saves last-used library type and folder paths
-- Tracks run statistics (when cleaned, how many items removed)
-- Optional auto-backup of config before updates
-- Supports multiple library configurations
-
-**Backward compatibility:**
-- v2.0 can use v1 command-line parameters
-- Falls back to interactive mode if no `-Root` provided
-- Auto-loads last used settings from config
+**Code improvements:**
+- Robust config handling (no mutation of PSCustomObject)
+- Safe path input (handles quoted paths, UNC shares, spaces)
+- Error handling with clear error messages
+- Comprehensive logging with timestamps
+- Full help available via `Get-Help .\Trickplay_Cleanup.ps1`
 
 ---
 
