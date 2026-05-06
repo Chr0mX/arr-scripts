@@ -332,15 +332,15 @@ function Select-FolderPath {
         [string]$SavedPath = $null
     )
 
-    Write-Output ""
+    Write-Host ""
     Write-Host "Folder path for $LibraryType library:" -ForegroundColor Yellow
 
     # Offer saved path only if it exists on disk
     if ($SavedPath -and (Test-Path -LiteralPath $SavedPath -PathType Container)) {
-        Write-Output "  Last used: $SavedPath"
-        Write-Output "  1) Use saved path"
-        Write-Output "  2) Enter a different path"
-        Write-Output ""
+        Write-Host "  Last used: $SavedPath"
+        Write-Host "  1) Use saved path"
+        Write-Host "  2) Enter a different path"
+        Write-Host ""
 
         $choice = Read-Host "  Choice (1 or 2)"
 
@@ -350,10 +350,10 @@ function Select-FolderPath {
     }
 
     # Prompt for path — paste-friendly
-    Write-Output ""
-    Write-Output "  Paste or type the full folder path:"
-    Write-Output "  (You can copy the path from Explorer's address bar and paste it here)"
-    Write-Output ""
+    Write-Host ""
+    Write-Host "  Paste or type the full folder path:"
+    Write-Host "  (You can copy the path from Explorer's address bar and paste it here)"
+    Write-Host ""
 
     while ($true) {
         $userPath = Read-Host "  Path"
