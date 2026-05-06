@@ -108,6 +108,23 @@ $Script:Stats = @{
 # CONFIGURATION FUNCTIONS
 # ============================================================================
 
+function ConvertTo-Hashtable {
+    param([Parameter(ValueFromPipeline)][object]$InputObject)
+    process {
+        if ($null -eq $InputObject)                          { return $null }
+        if ($InputObject -is [string] -or
+            $InputObject -is [ValueType])                    { return $InputObject }
+        if ($InputObject -is [System.Collections.IEnumerable]) {
+            return @($InputObject | ForEach-Object { ConvertTo-Hashtable $_ })
+        }
+        $hash = @{}
+        foreach ($prop in $InputObject.PSObject.Properties) {
+            $hash[$prop.Name] = ConvertTo-Hashtable $prop.Value
+        }
+        return $hash
+    }
+}
+
 function Get-Configuration {
     <#
     .SYNOPSIS
@@ -120,7 +137,9 @@ function Get-Configuration {
     }
 
     try {
-        $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+        # ConvertFrom-Json returns PSCustomObject which is not mutable in PS 5.1.
+        # Convert the full object tree to hashtables so properties can be freely set.
+        $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json | ConvertTo-Hashtable
         return $config
     } catch {
         Write-Error "Failed to load config from $ConfigPath : $_"
