@@ -504,7 +504,8 @@ function Invoke-MovieCleanup {
     param([string]$Root)
 
     Write-Log "Scanning Movie library: $Root"
-    Write-Log "Mode: $($WhatIf ? 'WhatIf (no changes will be made)' : 'Live')"
+    $modeText = if ($WhatIf) { 'WhatIf (no changes will be made)' } else { 'Live' }
+    Write-Log "Mode: $modeText"
     Write-Log ""
 
     $folders = Get-ChildItem -LiteralPath $Root -Directory -ErrorAction SilentlyContinue
@@ -533,7 +534,8 @@ function Invoke-TVShowCleanup {
     param([string]$Root)
 
     Write-Log "Scanning TV Show library: $Root"
-    Write-Log "Mode: $($WhatIf ? 'WhatIf (no changes will be made)' : 'Live')"
+    $modeText = if ($WhatIf) { 'WhatIf (no changes will be made)' } else { 'Live' }
+    Write-Log "Mode: $modeText"
     Write-Log ""
 
     $shows = Get-ChildItem -LiteralPath $Root -Directory -ErrorAction SilentlyContinue
