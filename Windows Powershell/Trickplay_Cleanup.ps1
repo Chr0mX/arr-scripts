@@ -105,6 +105,9 @@ $Script:Stats = @{
     TrickplayFailed   = 0
 }
 
+# Auto-remove flag: set to true when user confirms in interactive mode
+$Script:AutoRemove = $false
+
 # ============================================================================
 # CONFIGURATION FUNCTIONS
 # ============================================================================
@@ -509,7 +512,7 @@ function Get-TrickplayFolders {
 function Remove-TrickplayFolder {
     <#
     .SYNOPSIS
-        Removes trickplay folder with optional confirmation and error handling.
+        Removes trickplay folder with error handling. Auto-removes when user confirms cleanup.
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -522,8 +525,10 @@ function Remove-TrickplayFolder {
         return
     }
 
-    # Ask for confirmation if not -Force
-    if (-not $Force) {
+    # In interactive mode with confirmation, we auto-remove all (no per-item confirmation)
+    # In -Force mode, we also auto-remove all
+    # Otherwise, ask for confirmation (CLI mode without -Force)
+    if (-not ($Script:AutoRemove -or $Force)) {
         $response = Read-Host "  Remove '$($Folder.Name)'? (y/n)"
         if ($response -ne 'y') {
             Write-Log "  Skipped: $($Folder.FullName)"
@@ -757,28 +762,28 @@ function Invoke-InteractiveMode {
 
         Write-Output ""
 
-        # Step 2: Select folder path (or use saved)
+        # Step 2: Select folder path (or auto-use saved if available)
         $libraries   = Read-ConfigValue $config 'libraries' @{}
         $savedLib    = Read-ConfigValue $libraries $selectedLibraryType @{}
         $savedPath   = Read-ConfigValue $savedLib 'rootPath'
-        $selectedPath = Select-FolderPath -LibraryType $selectedLibraryType -SavedPath $savedPath
 
-        # Step 3: Optional log file (or use saved)
+        # If we have a saved path, use it directly without prompting
+        if ($savedPath -and (Test-Path -LiteralPath $savedPath -PathType Container)) {
+            $selectedPath = $savedPath
+            Write-Output "Using saved path: $selectedPath"
+        } else {
+            $selectedPath = Select-FolderPath -LibraryType $selectedLibraryType -SavedPath $savedPath
+        }
+
+        # Step 3: Optional log file (auto-use saved if available, allow override)
         Write-Output ""
         $savedLogFile = Read-ConfigValue $savedLib 'logFile'
         if ($savedLogFile) {
-            Write-Host "Log file:" -ForegroundColor Yellow
-            Write-Output "  Saved: $savedLogFile"
-            Write-Output "  (Press Enter to use, or type new path to override)"
-            Write-Output ""
-            $logFileInput = Read-Host "Log file path"
-            if ([string]::IsNullOrWhiteSpace($logFileInput)) {
-                $selectedLogFile = $savedLogFile
-                Write-Output "Using saved log file"
-            } else {
-                $selectedLogFile = $logFileInput
-            }
+            # Auto-use saved log file, but show it so user knows
+            $selectedLogFile = $savedLogFile
+            Write-Output "Using saved log file: $selectedLogFile"
         } else {
+            # No saved log file, ask if user wants one
             $logFileInput = Read-Host "Enter log file path (press Enter to skip)"
             if ([string]::IsNullOrWhiteSpace($logFileInput)) {
                 $selectedLogFile = $null
@@ -795,7 +800,10 @@ function Invoke-InteractiveMode {
         Write-Output "  Log File: $(if ($selectedLogFile) { $selectedLogFile } else { 'None' })"
         Write-Output ""
 
-        $confirm = Read-Host "Proceed with cleanup? (y/n)"
+        $confirm = Read-Host "Proceed with cleanup? (y/n, default is y)"
+        if ([string]::IsNullOrWhiteSpace($confirm)) {
+            $confirm = 'y'
+        }
         if ($confirm -ne 'y') {
             Write-Host "Cancelled by user." -ForegroundColor Yellow
             exit 0
@@ -803,6 +811,9 @@ function Invoke-InteractiveMode {
 
         # Save preferences
         Save-ConfigurationPreference -LibraryType $selectedLibraryType -Path $selectedPath -LogFile $selectedLogFile
+
+        # Set flag to auto-remove all trickplay folders without per-item confirmation
+        $Script:AutoRemove = $true
 
         # Execute cleanup
         $script:LogFile = $selectedLogFile
