@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2026-05-06T14:30:00Z",
+  "lastSelectedMode": "Movie",
+  "libraries": {
+    "Movie": {
+      "rootPath": "V:\\Movies",
+      "logFile": null,
+      "lastRunDate": "2026-05-06T14:30:00Z",
+      "lastRunStats": {
+        "scannedFolders": 150,
+        "emptyFolders": 5,
+        "trickplayRemoved": 8,
+        "trickplayFailed": 0
+      }
+    },
+    "TVShow": {
+      "rootPath": "V:\\TV Shows",
+      "logFile": "C:\\Logs\\trickplay_tvshows.log",
+      "lastRunDate": "2026-05-05T20:15:00Z",
+      "lastRunStats": {
+        "scannedFolders": 500,
+        "emptyFolders": 12,
+        "trickplayRemoved": 24,
+        "trickplayFailed": 1
+      }
+    }
+  },
+  "preferences": {
+    "confirmBeforeDelete": true,
+    "autoBackupConfig": true,
+    "verbose": true
+  }
+}
