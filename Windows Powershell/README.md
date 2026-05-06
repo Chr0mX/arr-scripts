@@ -10,7 +10,6 @@ Removes orphaned trickplay metadata folders from media libraries when the actual
 |---|---|---|
 | `Movies_trickplay_removal.ps1` | Legacy | Original script for movie libraries |
 | `TVshows_trickplay_removal.ps1` | Legacy | Original script for TV show libraries |
-| `Trickplay_Cleanup_v1.ps1` | Stable | Unified, parameterized script with full CLI mode |
 | `Trickplay_Cleanup.ps1` | **Current** | Interactive mode, config persistence, WhatIf, quick-select from saved config |
 
 > **Recommended:** Use `Trickplay_Cleanup.ps1` for all new usage. Automatically remembers your folder and reuses saved settings on subsequent runs.
