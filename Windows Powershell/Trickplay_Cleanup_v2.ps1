@@ -141,7 +141,7 @@ function New-DefaultConfiguration {
         lastSelectedMode = "Movie"
         libraries        = @{
             Movie  = @{
-                rootPath    = "V:\Movies"
+                rootPath    = $null
                 logFile     = $null
                 lastRunDate = $null
                 lastRunStats = @{
@@ -152,7 +152,7 @@ function New-DefaultConfiguration {
                 }
             }
             TVShow = @{
-                rootPath    = "V:\TV Shows"
+                rootPath    = $null
                 logFile     = $null
                 lastRunDate = $null
                 lastRunStats = @{
@@ -333,31 +333,40 @@ function Select-FolderPath {
     )
 
     Write-Output ""
-    Write-Host "Folder Selection:" -ForegroundColor Yellow
+    Write-Host "Folder path for $LibraryType library:" -ForegroundColor Yellow
 
-    # Show saved path option
+    # Offer saved path only if it exists on disk
     if ($SavedPath -and (Test-Path -LiteralPath $SavedPath -PathType Container)) {
         Write-Output "  Last used: $SavedPath"
         Write-Output "  1) Use saved path"
-        Write-Output "  2) Enter new path"
+        Write-Output "  2) Enter a different path"
         Write-Output ""
 
-        $choice = Read-Host "  Enter choice (1 or 2)"
+        $choice = Read-Host "  Choice (1 or 2)"
 
         if ($choice -eq "1") {
             return $SavedPath
         }
     }
 
-    # Prompt for new path
+    # Prompt for path — paste-friendly
     Write-Output ""
-    Write-Output "  Enter the full path to your $LibraryType library:"
+    Write-Host "  Paste or type the full folder path:" -ForegroundColor Cyan
+    Write-Output "  (You can copy the path from Explorer's address bar and paste it here)"
+    Write-Output ""
 
     while ($true) {
         $userPath = Read-Host "  Path"
 
-        # Normalize
-        $userPath = $userPath.Trim('"', "'", '\', '/')
+        # Strip surrounding quotes that Explorer/cmd add when copying paths with spaces
+        $userPath = $userPath.Trim()
+        if (($userPath.StartsWith('"') -and $userPath.EndsWith('"')) -or
+            ($userPath.StartsWith("'") -and $userPath.EndsWith("'"))) {
+            $userPath = $userPath.Substring(1, $userPath.Length - 2)
+        }
+
+        # Remove trailing slash only (preserve leading \\ for UNC paths)
+        $userPath = $userPath.TrimEnd('\', '/')
 
         if ([string]::IsNullOrWhiteSpace($userPath)) {
             Write-Host "  [!] Path cannot be empty. Try again." -ForegroundColor Red
@@ -365,7 +374,7 @@ function Select-FolderPath {
         }
 
         if (-not (Test-RootPath -RootPath $userPath)) {
-            Write-Host "  [!] Try again with a valid path." -ForegroundColor Yellow
+            Write-Host "  [!] Folder not found or not accessible. Check the path and try again." -ForegroundColor Yellow
             continue
         }
 
