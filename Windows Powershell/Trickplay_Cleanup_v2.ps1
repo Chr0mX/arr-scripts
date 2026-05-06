@@ -351,7 +351,7 @@ function Select-FolderPath {
 
     # Prompt for path — paste-friendly
     Write-Output ""
-    Write-Host "  Paste or type the full folder path:" -ForegroundColor Cyan
+    Write-Output "  Paste or type the full folder path:"
     Write-Output "  (You can copy the path from Explorer's address bar and paste it here)"
     Write-Output ""
 
