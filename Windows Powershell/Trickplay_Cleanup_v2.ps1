@@ -45,7 +45,7 @@
     Preview what would be deleted without making changes.
 
 .VERSION
-    2.0 - Added interactive mode, config persistence, WhatIf mode, improved error handling, statistics
+    2.1 - Fix PS 5.1 compatibility: Write-Host colors, [datetime]::UtcNow, if/else instead of ternary
 #>
 
 param(
@@ -67,7 +67,7 @@ param(
 )
 
 # Script metadata
-$ScriptVersion = "2.0"
+$ScriptVersion = "2.1"
 $ScriptName = "Trickplay_Cleanup"
 
 # Configuration file in same directory as script
